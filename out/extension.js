@@ -28,22 +28,17 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const http = __importStar(require("node:http"));
 function activate(context) {
-    // Register the command that is invoked via shortcut or context menu
     let disposable = vscode.commands.registerCommand('extension.generateFunctionHeader', async () => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
             const document = editor.document;
-            // Only proceed if the document is a Python file
             if (document.languageId === 'python') {
-                // Automatically select the entire line where the cursor is
                 const cursorPosition = editor.selection.active;
                 const line = document.lineAt(cursorPosition.line);
                 const selection = new vscode.Selection(line.range.start, line.range.end);
                 const selectedText = document.getText(selection);
-                // Check if the selected text is a Python comment
                 if (selectedText.trim().startsWith('#')) {
                     const inputText = selectedText.replace('#', '').trim();
-                    // Send request to AI server
                     const responseText = await getAIResponse(inputText);
                     if (responseText) {
                         editor.edit(editBuilder => {
