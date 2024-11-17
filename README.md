@@ -1,6 +1,6 @@
-# function-name-generator-extension README
+# function-name-generator README
 
-This is the README for your extension "function-name-generator-extension". After writing up a brief description, we recommend including the following sections.
+This is the README for your extension "function-name-generator". After writing up a brief description, we recommend including the following sections.
 
 ## Features
 

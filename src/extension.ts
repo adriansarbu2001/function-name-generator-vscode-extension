@@ -1,26 +1,87 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as http from 'node:http';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    // Register the command that is invoked via shortcut or context menu
+    let disposable = vscode.commands.registerCommand('extension.generateFunctionHeader', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            const document = editor.document;
+            // Only proceed if the document is a Python file
+            if (document.languageId === 'python') {
+                // Automatically select the entire line where the cursor is
+                const cursorPosition = editor.selection.active;
+                const line = document.lineAt(cursorPosition.line);
+                const selection = new vscode.Selection(line.range.start, line.range.end);
+                const selectedText = document.getText(selection);
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "function-name-generator-extension" is now active!');
+                // Check if the selected text is a Python comment
+                if (selectedText.trim().startsWith('#')) {
+                    const inputText = selectedText.replace('#', '').trim();
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('function-name-generator-extension.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Function Name Generator!');
-	});
+                    // Send request to AI server
+                    const responseText = await getAIResponse(inputText);
+                    if (responseText) {
+                        editor.edit(editBuilder => {
+                            const position = selection.end;
+                            editBuilder.insert(position, `\n${responseText}`);
+                        });
+                    }
+                } else {
+                    vscode.window.showErrorMessage('Please select a Python comment to generate a function header.');
+                }
+            } else {
+                vscode.window.showErrorMessage('This command only works in Python files.');
+            }
+        }
+    });
 
-	context.subscriptions.push(disposable);
+    context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
+
+async function getAIResponse(input: string): Promise<string | undefined> {
+    const postData = JSON.stringify({ input_text: input });
+
+    const options = {
+        hostname: '127.0.0.1',
+        port: 5000,
+        path: '/inference',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': postData.length
+        }
+    };
+
+    return new Promise((resolve, reject) => {
+        const req = http.request(options, (res: http.IncomingMessage) => {
+            let data = '';
+
+            res.on('data', (chunk: any) => {
+                data += chunk;
+            });
+
+            res.on('end', () => {
+                try {
+                    const parsedData = JSON.parse(data);
+                    resolve(parsedData.output_text);
+                } catch (e) {
+                    if (e instanceof Error) {
+                        reject(`Error parsing response: ${e.message}`);
+                    } else {
+                        reject('Unknown error occurred while parsing response');
+                    }
+                }
+            });
+        });
+
+        req.on('error', (e: any) => {
+            reject(`Problem with request: ${e.message}`);
+        });
+
+        req.write(postData);
+        req.end();
+    });
+}
